@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Disclaimer } from '@/components/Disclaimer'
 import { Button } from '@/components/ui/Button'
 import { SurveyForm } from '@/features/survey'
 import type { SurveyData } from '@/types'
@@ -21,6 +22,7 @@ export default function App() {
       <pre className="overflow-x-auto rounded-2xl bg-slate-900 p-4 text-sm text-emerald-300">
         {JSON.stringify(survey, null, 2)}
       </pre>
+      <Disclaimer />
       <Button variant="ghost" onClick={() => setSurvey(null)}>
         Wypełnij ponownie
       </Button>

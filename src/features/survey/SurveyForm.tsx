@@ -1,6 +1,7 @@
 import type { ComponentType, FormEvent } from 'react'
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import type { SurveyData } from '@/types'
+import { Disclaimer } from '@/components/Disclaimer'
 import { Button } from '@/components/ui/Button'
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { SURVEY_STEPS, type SurveyStepId } from './survey.options'
@@ -51,6 +52,7 @@ export function SurveyForm({ onComplete }: SurveyFormProps) {
       <main className="flex-1 px-4 py-6">
         {/* key = remount kroku → fokus na nowym nagłówku i czysty stan UI */}
         <StepComponent key={step.id} data={draft} onChange={update} />
+        {isLastStep && <Disclaimer className="mt-6" />}
       </main>
 
       <footer className="sticky bottom-0 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
