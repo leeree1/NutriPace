@@ -1,15 +1,38 @@
 # NutriPace AI
-Dla wszystkich osób, które chcą osiągnąć swój cel sylwetkowy i zdrowotny, ale potrzebują elastycznego, inteligentnego planu dopasowanego do ich budżetu, sprzętu i nagłych zmian w sklepie.
 
-## O projekcie
-NutriPace AI to nowoczesna aplikacja webowa oparta na sztucznej inteligencji, która kompleksowo wspiera użytkownika w drodze do lepszej formy. Użytkownik określa swój cel (redukcja, masa, zdrowie), budżet na jedzenie, dostępny sprzęt (dom/siłownia) oraz nietolerancje pokarmowe. OpenAI generuje spersonalizowany plan treningowy oraz jadłospis na cały tydzień wraz z listą zakupów. System obsługuje także dynamiczne zapytania w trakcie tygodnia – np. natychmiast podpowiada zamienniki, gdy w sklepie zabraknie konkretnego składnika.
+Aplikacja webowa (React + Vite + TypeScript + Tailwind CSS 4 + Lucide), która na podstawie ankiety generuje
+plan treningowy, jadłospis na 7 dni i listę zakupów (OpenAI GPT-4o) oraz podpowiada zamienniki składników w sklepie.
 
-## Zespół
-| Olexandra Shchukis | leeree1 |  
-| Zuzanna Sagan | aatec13 |
+## Uruchomienie
 
-## Technologia
-* **Framework:** React + Vite
-* **Język:** TypeScript / JavaScript
-* **API:** OpenAI API (GPT-4o do generowania planów i dynamicznych zamienników)
-* **Stylizacja:** Tailwind CSS, Lucide React
+```bash
+npm install
+npm run dev      # serwer deweloperski
+npm run build    # tsc + build produkcyjny
+npm run lint
+```
+
+## Struktura katalogów
+
+```
+src/
+├── main.tsx
+├── App.tsx                      # routing widoków: ankieta → dashboard
+├── index.css                    # Tailwind + paleta marki (@theme)
+├── components/ui/               # reużywalne, "głupie" komponenty UI
+├── features/                    # moduły per funkcjonalność MVP
+│   ├── survey/                  # Krok 1: ankieta (gotowe)
+│   │   ├── SurveyForm.tsx
+│   │   ├── useSurveyForm.ts     # logika kroków i stanu
+│   │   ├── survey.options.ts    # etykiety, ikony, stałe
+│   │   ├── survey.validation.ts
+│   │   └── steps/
+│   ├── dashboard/               # Krok 3: zakładki (jadłospis / trening / zakupy)
+│   └── substitutes/             # Krok 4: "Ratunek w sklepie"
+├── services/
+│   └── openai/                  # Krok 2: komunikacja z OpenAI (json_object)
+├── types/                       # SurveyData, NutriPlan… = kontrakt z JSON-em od AI
+└── lib/                         # małe helpery (cn, toggleItem)
+```
+
+Import przez alias `@/` (np. `import { cn } from '@/lib/cn'`).
