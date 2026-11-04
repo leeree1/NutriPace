@@ -1,9 +1,85 @@
 import { OpenAI } from "openai";
-import { z } from "zod";
+import { zodResponseFormat } from "openai/helpers/zod";
+import { AiPlanSchema } from "../src/types/plan"; // dostosuj ścieżkę do swojego projektu
+import type { DayPlan, NutriPlan, ShoppingCategory } from "../src/types/plan";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Vercel: generowanie trwa kilkanaście sekund, domyślny limit bywa za krótki
+export const config = { maxDuration: 60 };
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const round = (n: number, digits = 2) => Math.round(n * 10 ** digits) / 10 ** digits;
+
+// Buduje listę zakupów ze WSZYSTKICH składników wszystkich posiłków
+function buildShoppingList(days: DayPlan[]): { list: ShoppingCategory[]; totalCost: number } {
+  const merged = new Map<
+    string,
+    { name: string; unit: string; amount: number; price: number; category: string }
+  >();
+
+  for (const day of days) {
+    for (const meal of day.meals) {
+      for (const ing of meal.ingredients ?? []) {
+        let unit = ing.unit.trim().toLowerCase();
+        let amount = Number(ing.amount) || 0;
+
+        // Ujednolicenie jednostek, żeby 0,2 kg i 150 g dało się zsumować
+        if (unit === "kg") { unit = "g"; amount *= 1000; }
+        if (unit === "l") { unit = "ml"; amount *= 1000; }
+
+        const name = ing.name.trim().toLowerCase();
+        const key = `${name}|${unit}`;
+        const price = Number(ing.estimatedPricePln) || 0;
+
+        const existing = merged.get(key);
+        if (existing) {
+          existing.amount += amount;
+          existing.price += price;
+        } else {
+          merged.set(key, {
+            name,
+            unit,
+            amount,
+            price,
+            category: ing.category?.trim() || "Inne",
+          });
+        }
+      }
+    }
+  }
+
+  const byCategory = new Map<string, ShoppingCategory["items"]>();
+  let totalCost = 0;
+
+  for (const item of merged.values()) {
+    let { amount, unit } = item;
+    if (unit === "g" && amount >= 1000) { amount /= 1000; unit = "kg"; }
+    if (unit === "ml" && amount >= 1000) { amount /= 1000; unit = "l"; }
+
+    totalCost += item.price;
+
+    const items = byCategory.get(item.category) ?? [];
+    items.push({
+      name: capitalize(item.name),
+      amount: round(amount, 2),
+      unit,
+      estimatedPricePln: round(item.price, 2),
+    });
+    byCategory.set(item.category, items);
+  }
+
+  const list = [...byCategory.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "pl"))
+    .map(([category, items]) => ({
+      category,
+      items: items.sort((a, b) => a.name.localeCompare(b.name, "pl")),
+    }));
+
+  return { list, totalCost: round(totalCost, 2) };
+}
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -13,60 +89,76 @@ export default async function handler(req: any, res: any) {
   try {
     const surveyData = req.body;
 
-    if (!surveyData) {
+    if (!surveyData || typeof surveyData !== "object" || Object.keys(surveyData).length === 0) {
       return res.status(400).json({ success: false, error: "Brak danych ankiety." });
     }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 0.7,
+      max_tokens: 16000,
       messages: [
         {
           role: "system",
-          content: 
+          content:
             "Jesteś profesjonalnym dietetykiem klinicznym oraz trenerem personalnym. " +
-            "Wygeneruj spersonalizowany 7-dniowy plan na podstawie ankiety. " +
-            "Zwróć poprawny obiekt JSON zawierający klucze: summary (obiekt z liczbami dailyKcal, proteinG, carbsG, fatG, estimatedWeeklyCostPln), " +
-            "mealPlan (tablica), trainingPlan (tablica), shoppingList (tablica).",
+            "Na podstawie ankiety wygeneruj spersonalizowany 7-dniowy plan. " +
+            "Wszystkie nazwy posiłków, opisy oraz przepisy pisz w języku polskim. " +
+            "Zasady: " +
+            "1) mealPlan ma dokładnie 7 elementów (poniedziałek-niedziela), każdy dzień ma 3-5 posiłków. " +
+            "2) Każdy posiłek ma kcal, proteinG, carbsG, fatG; suma kcal posiłków = totalKcal dnia, a totalKcal ≈ summary.dailyKcal. " +
+            "3) Uwzględnij alergie, wykluczenia, dietę i cel z ankiety. " +
+            "4) Każdy posiłek ma w polu ingredients PEŁNĄ listę składników użytych w opisie przepisu, " +
+            "z ilością na ten jeden posiłek, jednostką (g, ml, szt., łyżka, łyżeczka), kategorią sklepową i szacowanym kosztem w zł. " +
+            "Każdy produkt wspomniany w przepisie (także tuńczyk, oliwa, przyprawy, sól) musi być w ingredients. " +
+            "Nazwy składników pisz w mianowniku, w liczbie pojedynczej, zawsze tak samo dla tego samego produktu (np. zawsze 'jajko', nigdy 'jajka'). " +
+            "5) Łączny koszt wszystkich składników z całego tygodnia ma mieścić się w budżecie z ankiety (jeśli podano). " +
+            "6) trainingPlan ma dokładnie 7 elementów (poniedziałek-niedziela). " +
+            "Dostosuj go do ankiety: cel, poziom zaawansowania, dostępny sprzęt, miejsce treningów, liczbę dni treningowych w tygodniu i ewentualne kontuzje lub ograniczenia. " +
+            "Dni treningowe mają 4-8 ćwiczeń, każde z liczbą serii (sets), powtórzeniami lub czasem (reps) i krótką wskazówką (notes), oraz krótką rozgrzewkę (warmup). " +
+            "Dni odpoczynku mają isRestDay=true, durationMin=0, pustą tablicę exercises i pusty warmup; w title możesz zaproponować lekką aktywność, np. spacer. " +
+            "Rozłóż dni treningowe i odpoczynku sensownie (nie trenuj tej samej partii mięśni dzień po dniu).",
         },
         {
           role: "user",
           content: `Dane ankiety użytkownika: ${JSON.stringify(surveyData)}`,
         },
       ],
-      response_format: { type: "json_object" },
+      response_format: zodResponseFormat(AiPlanSchema, "nutri_plan"),
     });
 
-    const rawContent = completion.choices[0].message.content;
-    if (!rawContent) {
+    const choice = completion.choices[0];
+
+    if (choice.finish_reason === "length") {
+      throw new Error("Odpowiedź modelu została ucięta. Spróbuj ponownie.");
+    }
+    if (choice.message.refusal) {
+      throw new Error("Model odmówił wygenerowania planu.");
+    }
+    if (!choice.message.content) {
       throw new Error("Model nie zwrócił odpowiedzi.");
     }
 
-    let parsedJson = JSON.parse(rawContent);
+    // Walidacja Zodem: gwarantuje, że frontend dostanie dokładnie oczekiwaną strukturę
+    const aiPlan = AiPlanSchema.parse(JSON.parse(choice.message.content));
 
-    // --- AUTOMATYCZNA NAPRAWA DANYCH OD MODELU ---
-    // Jeśli model zwrócił obiekt zamiast tablicy, owijamy go w tablicę
-    if (parsedJson.mealPlan && !Array.isArray(parsedJson.mealPlan)) {
-      parsedJson.mealPlan = [parsedJson.mealPlan];
-    }
-    if (parsedJson.trainingPlan && !Array.isArray(parsedJson.trainingPlan)) {
-      parsedJson.trainingPlan = [parsedJson.trainingPlan];
-    }
-    if (parsedJson.shoppingList && !Array.isArray(parsedJson.shoppingList)) {
-      parsedJson.shoppingList = [parsedJson.shoppingList];
+    if (aiPlan.mealPlan.length === 0) {
+      throw new Error("Plan jest niekompletny. Spróbuj ponownie.");
     }
 
-    // Zabezpieczenie przed NaN w summary
-    if (parsedJson.summary) {
-      for (const key of ['dailyKcal', 'proteinG', 'carbsG', 'fatG', 'estimatedWeeklyCostPln']) {
-        const val = Number(parsedJson.summary[key]);
-        parsedJson.summary[key] = isNaN(val) ? 0 : val;
-      }
-    } else {
-      parsedJson.summary = { dailyKcal: 2000, proteinG: 150, carbsG: 200, fatG: 70, estimatedWeeklyCostPln: 200 };
+    // Lista zakupów liczona z przepisów, więc zawsze jest z nimi spójna
+    const { list, totalCost } = buildShoppingList(aiPlan.mealPlan);
+    if (list.length === 0) {
+      throw new Error("Nie udało się zbudować listy zakupów. Spróbuj ponownie.");
     }
-    // ---------------------------------------------
 
-    return res.status(200).json({ success: true, data: parsedJson });
+    const plan: NutriPlan = {
+      ...aiPlan,
+      summary: { ...aiPlan.summary, estimatedWeeklyCostPln: totalCost },
+      shoppingList: list,
+    };
+
+    return res.status(200).json({ success: true, data: plan });
   } catch (error: any) {
     console.error("Błąd podczas generowania planu:", error);
     return res.status(500).json({

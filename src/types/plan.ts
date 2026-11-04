@@ -1,161 +1,79 @@
-/**
- * Kształt odpowiedzi JSON z OpenAI (krok 2 MVP) – to samo opisujemy w prompcie
- * systemowym, a w UI (dashboard) mapujemy 1:1 na zakładki.
- * Liczby są zawsze w jednostkach podanych w nazwie pola (kcal, g, zł).
- */
-
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
-
-export interface Ingredient {
-  name: string
-  amount: number
-  /** np. "g", "ml", "szt." */
-  unit: string
-}
-
-export interface Meal {
-  type: MealType
-  name: string
-  ingredients: Ingredient[]
-  kcal: number
-  proteinG: number
-  carbsG: number
-  fatG: number
-  /** Krótki opis przygotowania. */
-  recipe?: string
-}
-
-export interface MealDay {
-  /** 1 = poniedziałek … 7 = niedziela. */
-  day: number
-  meals: Meal[]
-}
-
-export interface Exercise {
-  name: string
-  sets: number
-  /** Tekst, bo model zwraca też zakresy ("8-10") i czas ("30 s"). */
-  reps: string
-  restSec?: number
-  notes?: string
-}
-
-export interface TrainingDay {
-  /** 1 = poniedziałek … 7 = niedziela. */
-  day: number
-  /** np. "Góra ciała", "Nogi", "Odpoczynek". */
-  focus: string
-  isRestDay: boolean
-  exercises: Exercise[]
-}
-
-export interface ShoppingItem {
-  name: string
-  amount: number
-  unit: string
-  estimatedPricePln?: number
-}
-
-export interface ShoppingCategory {
-  /** np. "Nabiał", "Warzywa i owoce", "Mięso i ryby". */
-  category: string
-  items: ShoppingItem[]
-}
-
-export interface PlanSummary {
-  dailyKcal: number
-  proteinG: number
-  carbsG: number
-  fatG: number
-  estimatedWeeklyCostPln: number
-}
-
-/** Cały plan zwracany jednym wywołaniem (response_format: json_object). */
-export interface NutriPlan {
-  summary: PlanSummary;
-  mealPlan: MealDay[];
-  trainingPlan: TrainingDay[];
-  shoppingList: ShoppingCategory[];
-}
-
-/** Odpowiedź funkcji "Ratunek w sklepie" (krok 4 MVP). */
-export interface SubstituteSuggestion {
-  name: string
-  amount: number
-  unit: string
-  /** Dlaczego pasuje i czy zmienia makro posiłku. */
-  reason: string
-}
-
-export interface SubstituteResponse {
-  substitutes: SubstituteSuggestion[]
-}
-
-
 import { z } from "zod";
 
-// --- Schematy Zod do Structured Outputs (OpenAI) ---
-
-export const ingredientSchema = z.object({
-  name: z.string(),
-  amount: z.number(),
-  unit: z.string(),
+// Składnik posiłku: z tych danych serwer sam buduje listę zakupów
+export const IngredientSchema = z.object({
+  name: z.string().describe("Nazwa w mianowniku, liczba pojedyncza, np. tuńczyk w puszce, jajko, ryż basmati"),
+  amount: z.number().describe("Ilość na ten jeden posiłek, np. 150"),
+  unit: z.string().describe("Jednostka: g, ml, szt., łyżka lub łyżeczka"),
+  category: z.string().describe("Kategoria sklepowa, np. Nabiał, Warzywa, Mięso i ryby, Pieczywo i zboża"),
+  estimatedPricePln: z.number().describe("Szacowany koszt tej ilości w zł"),
 });
 
-export const mealSchema = z.object({
-  type: z.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+export const MealSchema = z.object({
+  mealType: z.string().describe("Np. Śniadanie, Obiad, Kolacja"),
   name: z.string(),
-  ingredients: z.array(ingredientSchema),
+  description: z.string().describe("Krótki przepis po polsku, 2-4 zdania"),
+  ingredients: z.array(IngredientSchema).describe("WSZYSTKIE składniki użyte w przepisie"),
   kcal: z.number(),
   proteinG: z.number(),
   carbsG: z.number(),
   fatG: z.number(),
-  recipe: z.string().optional(),
 });
 
-export const mealDaySchema = z.object({
-  day: z.number(),
-  meals: z.array(mealSchema),
+export const DaySchema = z.object({
+  day: z.string().describe("Np. Poniedziałek"),
+  totalKcal: z.number(),
+  meals: z.array(MealSchema),
 });
 
-export const exerciseSchema = z.object({
-  name: z.string(),
-  sets: z.number(),
-  reps: z.string(),
-  restSec: z.number().optional(),
-  notes: z.string().optional(),
+export const ExerciseSchema = z.object({
+  name: z.string().describe("Nazwa ćwiczenia po polsku, np. Przysiad ze sztangą"),
+  sets: z.number().describe("Liczba serii"),
+  reps: z.string().describe("Powtórzenia lub czas, np. 8-12 albo 30 s"),
+  notes: z.string().describe("Krótka wskazówka techniczna lub pusty tekst"),
 });
 
-export const trainingDaySchema = z.object({
-  day: z.number(),
-  focus: z.string(),
+export const TrainingDaySchema = z.object({
+  day: z.string().describe("Np. Poniedziałek"),
+  title: z.string().describe("Np. Trening siłowy: góra ciała, Spacer lub Dzień odpoczynku"),
   isRestDay: z.boolean(),
-  exercises: z.array(exerciseSchema),
+  durationMin: z.number().describe("0 w dniu odpoczynku"),
+  warmup: z.string().describe("Krótka rozgrzewka lub pusty tekst w dniu odpoczynku"),
+  exercises: z.array(ExerciseSchema).describe("Pusta tablica w dniu odpoczynku"),
 });
 
-export const shoppingItemSchema = z.object({
+// Struktura listy zakupów zgodna z ShoppingListView: kategorie -> produkty
+export const ShoppingItemSchema = z.object({
   name: z.string(),
   amount: z.number(),
   unit: z.string(),
-  estimatedPricePln: z.number().optional(),
+  estimatedPricePln: z.number(),
 });
 
-export const shoppingCategorySchema = z.object({
+export const ShoppingCategorySchema = z.object({
   category: z.string(),
-  items: z.array(shoppingItemSchema),
+  items: z.array(ShoppingItemSchema),
 });
 
-export const planSummarySchema = z.object({
-  dailyKcal: z.number(),
-  proteinG: z.number(),
-  carbsG: z.number(),
-  fatG: z.number(),
-  estimatedWeeklyCostPln: z.number(),
+// Schemat, który dostaje model (BEZ listy zakupów, bo ta jest liczona w kodzie)
+export const AiPlanSchema = z.object({
+  summary: z.object({
+    dailyKcal: z.number(),
+    proteinG: z.number(),
+    carbsG: z.number(),
+    fatG: z.number(),
+    estimatedWeeklyCostPln: z.number(),
+  }),
+  mealPlan: z.array(DaySchema),
+  trainingPlan: z.array(TrainingDaySchema),
 });
 
-export const nutriPlanSchema = z.object({
-  summary: planSummarySchema,
-  mealPlan: z.array(mealDaySchema),
-  trainingPlan: z.array(trainingDaySchema),
-  shoppingList: z.array(shoppingCategorySchema),
-});
+export type AiPlan = z.infer<typeof AiPlanSchema>;
+export type NutriPlan = AiPlan & { shoppingList: ShoppingCategory[] };
+export type DayPlan = z.infer<typeof DaySchema>;
+export type TrainingDay = z.infer<typeof TrainingDaySchema>;
+export type Exercise = z.infer<typeof ExerciseSchema>;
+export type Meal = z.infer<typeof MealSchema>;
+export type Ingredient = z.infer<typeof IngredientSchema>;
+export type ShoppingItem = z.infer<typeof ShoppingItemSchema>;
+export type ShoppingCategory = z.infer<typeof ShoppingCategorySchema>;
