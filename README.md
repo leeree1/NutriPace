@@ -58,27 +58,29 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 ### F1. Formularz profilu (ankieta)
 
-**Właściciel:** @leeree1 · **Status:** szkielet gotowy
+**Właściciel:** @leeree1 · **Status:** gotowe (do sprawdzenia na ekranie 360 px)
 
 - **Co robi użytkownik:** przechodzi 4 kroki: cel (redukcja / masa / zdrowie), tygodniowy budżet na jedzenie, miejsce treningu ze sprzętem i liczbą dni, nietolerancje pokarmowe.
-- **Widok:** wieloetapowy formularz (mobile first) z paskiem postępu; w ostatnim kroku przycisk „Generuj plan".
+- **Widok:** wieloetapowy formularz (mobile first) z paskiem postępu; w ostatnim kroku przycisk „Generuj plan", który od razu uruchamia generowanie.
 - **Dane:** wejście – odpowiedzi użytkownika; wyjście – obiekt `SurveyData` (`src/types/survey.ts`).
 - **Najtrudniejsze:** walidacja kroków i spójność danych (np. sprzęt domowy tylko przy treningu w domu) oraz dostępność (obsługa klawiaturą i czytnikiem ekranu).
+- **Po odświeżeniu strony:** zapisane są ukończona ankieta (`SurveyData`) i wygenerowany plan (`localStorage`). Rozpoczęty, niedokończony szkic ankiety na razie nie jest zapisywany (do zrobienia na M1).
 - **Gotowe, gdy:** nie da się przejść dalej bez wymaganych odpowiedzi, a na końcu aplikacja otrzymuje poprawny `SurveyData`; formularz działa na ekranie 360 px i na desktopie.
 
 ### F2. Generowanie planu (proxy + OpenAI)
 
-**Właściciel:** @aatec13 · **Status:** do zrobienia
+**Właściciel:** @aatec13 · **Status:** w trakcie (jest ładowanie, błąd, ponowienie i anulowanie; czeka na test z prawdziwym API)
 
-- **Co robi użytkownik:** klika „Generuj plan", widzi stan ładowania, a przy błędzie może spróbować ponownie.
+- **Co robi użytkownik:** kończy ankietę (to od razu uruchamia generowanie), widzi stan ładowania z możliwością anulowania, a przy błędzie może spróbować ponownie.
 - **Widok:** ekran ładowania i komunikat o błędzie z przyciskiem „Spróbuj ponownie".
 - **Dane:** wejście – `SurveyData` wysyłane na `POST /api/generate-plan`; wyjście – `NutriPlan` (jadłospis na 7 dni, plan treningowy, lista zakupów, podsumowanie makroskładników; `src/types/plan.ts`).
 - **Najtrudniejsze:** wymuszenie poprawnego JSON-a (Structured Outputs + Zod), pilnowanie nietolerancji i budżetu w odpowiedzi modelu, czas odpowiedzi i limity funkcji serverless, kontrola kosztów.
 - **Gotowe, gdy:** dla kilku przykładowych ankiet endpoint zwraca plan zgodny ze schematem, niepoprawna odpowiedź modelu jest wychwytywana (ponowienie lub błąd), a klucza OpenAI nie ma w kodzie frontu.
+- **Tryb mock:** przy `VITE_USE_MOCK=true` aplikacja zamiast wołać `/api` zwraca przykładowy plan po krótkim opóźnieniu, więc interfejs można rozwijać bez backendu i bez kosztów OpenAI. Kryterium: z włączonym mockiem da się przejść całą ścieżkę (ankieta → plan → lista zakupów) przy samym `npm run dev`.
 
 ### F3. Widok tygodnia (jadłospis + trening)
 
-**Właściciel:** @leeree1 · **Status:** do zrobienia
+**Właściciel:** @leeree1 · **Status:** w trakcie (widoki jadłospisu i treningu istnieją i pokazują 7 dni pod sobą; zakładki i wybór dnia 1–7 do zrobienia)
 
 - **Co robi użytkownik:** przegląda plan dzień po dniu i przełącza zakładki Jadłospis / Trening.
 - **Widok:** dashboard z zakładkami, wybór dnia (1–7), karty posiłków z makroskładnikami, lista ćwiczeń (serie, powtórzenia).
@@ -88,12 +90,13 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 ### F4. Lista zakupów
 
-**Właściciel:** @aatec13 · **Status:** do zrobienia
+**Właściciel:** @aatec13 · **Status:** w trakcie (lista z kategoriami, odhaczaniem i sumą kosztów działa; porównanie z budżetem do zrobienia)
 
 - **Co robi użytkownik:** widzi listę zakupów pogrupowaną według kategorii, odhacza kupione produkty i porównuje szacowany koszt z budżetem.
 - **Widok:** zakładka „Zakupy": kategorie z polami wyboru i sumą kosztów.
 - **Dane:** `NutriPlan.shoppingList` (kategorie → pozycje: nazwa, ilość, jednostka, cena szacunkowa) oraz budżet z `SurveyData`.
 - **Najtrudniejsze:** zgodność listy z jadłospisem (sumowanie składników), wiarygodność cen szacowanych przez model, zapamiętywanie odhaczeń po odświeżeniu strony.
+- **Odhaczenia a nowy plan:** odhaczenia są przypisane do konkretnego planu. Wygenerowanie nowego planu albo „Zacznij od nowa" czyści je, więc nowy plan zaczyna od pustej listy.
 - **Gotowe, gdy:** każdy składnik z jadłospisu jest na liście, pozycje są pogrupowane, a odhaczenia przeżywają odświeżenie strony.
 
 ### F5. Ratunek w sklepie (rozszerzenie)
@@ -102,26 +105,27 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 - **Co robi użytkownik:** gdy w sklepie brakuje składnika, wskazuje go i dostaje 2–3 zamienniki.
 - **Widok:** przycisk przy posiłku i na liście zakupów otwiera okno z propozycjami.
-- **Dane:** wejście – składnik, posiłek i nietolerancje na `POST /api/substitute`; wyjście – `SubstituteResponse` (`src/types/plan.ts`).
+- **Dane:** wejście – składnik, posiłek i nietolerancje na `POST /api/substitute`; wyjście – `SubstituteResponse` (typ do dodania w `src/types/plan.ts`; na razie go tam nie ma).
 - **Najtrudniejsze:** zamiennik nie może łamać nietolerancji ani mocno zmieniać makroskładników; odpowiedź musi przyjść w kilka sekund, bo użytkownik stoi w sklepie.
 - **Gotowe, gdy:** dla typowych składników zamienniki wracają w kilka sekund i respektują nietolerancje z profilu.
 
 ## Struktura katalogów
 
 ```
-api/                             # funkcje serverless (proxy do OpenAI) – docelowo
+api/
+└── generate-plan.ts             # funkcja serverless (proxy do OpenAI)
 src/
 ├── main.tsx
-├── App.tsx                      # widoki: ankieta → dashboard
+├── App.tsx                      # widoki: ankieta → generowanie → plan
 ├── index.css                    # Tailwind + paleta marki
-├── components/                  # Disclaimer i reużywalne komponenty UI (ui/)
+├── components/                  # PlanGenerator, MealPlanView, TrainingPlanView, ShoppingListView, Disclaimer; ui/ – reużywalne komponenty
 ├── features/
 │   ├── survey/                  # F1: ankieta
-│   ├── dashboard/               # F3, F4: widok tygodnia i lista zakupów
-│   └── substitutes/             # F5: „Ratunek w sklepie"
-├── services/                    # klient naszych endpointów /api/...
+│   ├── dashboard/               # (planowane) F3: dashboard z zakładkami; dziś widoki są w components/
+│   └── substitutes/             # (planowane) F5: „Ratunek w sklepie"
+├── services/                    # planApi.ts (klient /api), mockPlan.ts (tryb mock), usePlanGeneration.ts
 ├── types/                       # SurveyData, NutriPlan… (kontrakt z JSON-em od AI)
-└── lib/                         # małe helpery
+└── lib/                         # cn, toggleItem, storage.ts (localStorage)
 ```
 
 Import przez alias `@/` (np. `import { cn } from '@/lib/cn'`).
@@ -135,4 +139,14 @@ npm run build    # sprawdzenie typów + build produkcyjny
 npm run lint
 ```
 
-Lokalnie skopiuj `.env.example` do `.env` i uzupełnij `OPENAI_API_KEY` (plik `.env` nie jest commitowany).
+### Tryby uruchomienia
+
+**1. Z mockiem (bez backendu i bez klucza OpenAI):** utwórz plik `.env` w głównym folderze projektu (obok `package.json`) i dodaj linię:
+
+```
+VITE_USE_MOCK=true
+```
+
+Następnie uruchom `npm run dev` (po zmianie `.env` zrestartuj serwer). Po ankiecie aplikacja pokaże przykładowy plan po ok. 1 s. Samo `npm run dev` bez mocka nie obsługuje `/api`, więc generowanie zakończy się komunikatem o braku backendu.
+
+**2. Z prawdziwym API (`vercel dev`):** skopiuj `.env.example` do `.env`, uzupełnij `OPENAI_API_KEY` i usuń (lub ustaw na `false`) `VITE_USE_MOCK`. Uruchom `vercel dev`, który obsługuje zarówno front, jak i funkcje z `api/`. Plik `.env` nie jest commitowany.
