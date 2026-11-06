@@ -1,12 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SurveyData, SurveyDraft } from '@/types'
+import { clearSurveyDraft, loadSurveyDraft, saveSurveyDraft } from '@/lib/storage'
 import { INITIAL_DRAFT, SURVEY_STEPS } from './survey.options'
 import { isStepValid, toSurveyData } from './survey.validation'
 
 /** Cała logika wieloetapowej ankiety – komponenty zostają czysto prezentacyjne. */
 export function useSurveyForm(onComplete: (data: SurveyData) => void) {
-  const [draft, setDraft] = useState<SurveyDraft>(INITIAL_DRAFT)
-  const [stepIndex, setStepIndex] = useState(0)
+  // Szkic i krok przeżywają odświeżenie strony (localStorage).
+  const [saved] = useState(() => loadSurveyDraft(SURVEY_STEPS.length))
+  const [draft, setDraft] = useState<SurveyDraft>(saved?.draft ?? INITIAL_DRAFT)
+  const [stepIndex, setStepIndex] = useState(saved?.stepIndex ?? 0)
+
+  useEffect(() => {
+    saveSurveyDraft({ draft, stepIndex })
+  }, [draft, stepIndex])
 
   const step = SURVEY_STEPS[stepIndex]
   const isFirstStep = stepIndex === 0
@@ -27,7 +34,10 @@ export function useSurveyForm(onComplete: (data: SurveyData) => void) {
     }
 
     const data = toSurveyData(draft)
-    if (data) onComplete(data)
+    if (data) {
+      clearSurveyDraft()
+      onComplete(data)
+    }
   }
 
   return { draft, update, step, stepIndex, isFirstStep, isLastStep, canProceed, back, next }
