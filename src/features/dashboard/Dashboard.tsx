@@ -52,7 +52,8 @@ export function Dashboard({ plan, planId, weeklyBudgetPln, onReset }: DashboardP
     document.getElementById(`tab-${TABS[next].id}`)?.focus()
   }
 
-  const showDayPicker = tab !== 'shopping' && dayCount > 0
+  const showDayPicker =
+    dayCount > 0 && (tab === 'meals' || (tab === 'training' && hasTrainingDays))
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 pt-8 pb-16">
