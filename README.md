@@ -69,7 +69,7 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 ### F2. Generowanie planu (proxy + OpenAI)
 
-**Właściciel:** @leeree1 · **Status:** gotowe (ładowanie, błąd, ponowienie i anulowanie; przetestowane z prawdziwym API lokalnie przez `vercel dev`, do sprawdzenia po wdrożeniu na Vercel)
+**Właściciel:** @aatec13 + leeree1 (aktualizacja designu) · **Status:** gotowe (ładowanie, błąd, ponowienie i anulowanie; przetestowane z prawdziwym API lokalnie przez `vercel dev`, do sprawdzenia po wdrożeniu na Vercel)
 
 - **Co robi użytkownik:** kończy ankietę (to od razu uruchamia generowanie), widzi stan ładowania z możliwością anulowania, a przy błędzie może spróbować ponownie.
 - **Widok:** ekran ładowania i komunikat o błędzie z przyciskiem „Spróbuj ponownie".
