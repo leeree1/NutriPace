@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { AiPlanSchema, ShoppingCategorySchema } from '@/types/plan'
 import type { NutriPlan } from '@/types/plan'
 import type { SurveyData } from '@/types'
-import { MOCK_PLAN } from './mockPlan'
+import { buildMockPlan } from './mockPlan'
 
 /** Pełny plan zwracany przez /api/generate-plan (plan od AI + lista zakupów z serwera). */
 export const NutriPlanSchema = AiPlanSchema.extend({
@@ -68,7 +68,7 @@ export async function generatePlan(
   try {
     if (USE_MOCK) {
       await delay(MOCK_DELAY_MS, controller.signal)
-      return { ok: true, plan: MOCK_PLAN }
+      return { ok: true, plan: buildMockPlan(survey) }
     }
 
     const response = await fetch('/api/generate-plan', {

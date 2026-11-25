@@ -81,7 +81,7 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 ### F3. Widok tygodnia (jadłospis + trening)
 
-**Właściciel:** @leeree1 · **Status:** w trakcie (widoki jadłospisu i treningu istnieją i pokazują 7 dni pod sobą; zakładki i wybór dnia 1–7 do zrobienia)
+**Właściciel:** @leeree1 · **Status:** gotowe (zakładki Jadłospis / Trening / Zakupy, wybór dnia 1–7, obsługa dni odpoczynku; do sprawdzenia na ekranie 360 px)
 
 - **Co robi użytkownik:** przegląda plan dzień po dniu i przełącza zakładki Jadłospis / Trening.
 - **Widok:** dashboard z zakładkami, wybór dnia (1–7), karty posiłków z makroskładnikami, lista ćwiczeń (serie, powtórzenia).
