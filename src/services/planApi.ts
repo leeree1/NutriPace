@@ -9,8 +9,8 @@ export const NutriPlanSchema = AiPlanSchema.extend({
   shoppingList: z.array(ShoppingCategorySchema),
 })
 
-/** Funkcja serverless może działać do 60 s (maxDuration), więc dajemy jej chwilę zapasu. */
-const REQUEST_TIMEOUT_MS = 65_000
+/** Funkcja serverless może działać do 120 s (maxDuration), więc dajemy jej chwilę zapasu. */
+const REQUEST_TIMEOUT_MS = 125_000
 const MOCK_DELAY_MS = 1_200
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'

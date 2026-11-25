@@ -69,13 +69,14 @@ Opis każdej funkcji: co robi użytkownik, widok, dane, najtrudniejsze, kryteriu
 
 ### F2. Generowanie planu (proxy + OpenAI)
 
-**Właściciel:** @aatec13 · **Status:** w trakcie (jest ładowanie, błąd, ponowienie i anulowanie; czeka na test z prawdziwym API)
+**Właściciel:** @leeree1 · **Status:** gotowe (ładowanie, błąd, ponowienie i anulowanie; przetestowane z prawdziwym API lokalnie przez `vercel dev`, do sprawdzenia po wdrożeniu na Vercel)
 
 - **Co robi użytkownik:** kończy ankietę (to od razu uruchamia generowanie), widzi stan ładowania z możliwością anulowania, a przy błędzie może spróbować ponownie.
 - **Widok:** ekran ładowania i komunikat o błędzie z przyciskiem „Spróbuj ponownie".
 - **Dane:** wejście – `SurveyData` wysyłane na `POST /api/generate-plan`; wyjście – `NutriPlan` (jadłospis na 7 dni, plan treningowy, lista zakupów, podsumowanie makroskładników; `src/types/plan.ts`).
 - **Najtrudniejsze:** wymuszenie poprawnego JSON-a (Structured Outputs + Zod), pilnowanie nietolerancji i budżetu w odpowiedzi modelu, czas odpowiedzi i limity funkcji serverless, kontrola kosztów.
 - **Gotowe, gdy:** dla kilku przykładowych ankiet endpoint zwraca plan zgodny ze schematem, niepoprawna odpowiedź modelu jest wychwytywana (ponowienie lub błąd), a klucza OpenAI nie ma w kodzie frontu.
+- **Jak działa generowanie:** plan powstaje z wielu krótkich zapytań do OpenAI wysyłanych równolegle: najpierw krótki krok z dziennymi celami (kcal i makroskładniki), potem jedno zapytanie na każdy dzień jadłospisu oraz osobne zapytanie o plan treningowy. Dzięki temu jest szybciej niż przy jednym zapytaniu o cały plan. Serwer sam sprawdza liczbę dni i wykluczenia z ankiety (przy złamaniu wykluczeń powtarza tylko ten jeden dzień, a gdy to nie pomoże, zwraca błąd 422), a listę zakupów i koszt tygodniowy liczy z przepisów.
 - **Tryb mock:** przy `VITE_USE_MOCK=true` aplikacja zamiast wołać `/api` zwraca przykładowy plan po krótkim opóźnieniu, więc interfejs można rozwijać bez backendu i bez kosztów OpenAI. Kryterium: z włączonym mockiem da się przejść całą ścieżkę (ankieta → plan → lista zakupów) przy samym `npm run dev`.
 
 ### F3. Widok tygodnia (jadłospis + trening)
